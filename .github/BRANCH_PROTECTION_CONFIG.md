@@ -3,6 +3,7 @@
 Current branch protection settings for the `main` branch in HelioStack repository.
 
 **Last Updated:** 12 February 2026
+**Status:** Temporarily simplified - approval requirements removed
 
 ---
 
@@ -15,12 +16,14 @@ Current branch protection settings for the `main` branch in HelioStack repositor
   - All changes to `main` must go through a pull request
   - Direct pushes to `main` are blocked
 
-- **Required approvals:** 1
-  - At least one approval required before merging
-  - Code owner can approve their own PRs (solo development)
+- **Required approvals:** OFF (temporarily disabled)
+  - Approvals not currently required
+  - Can merge PRs without approval
+  - _Note: Was causing self-approval issues, to be re-enabled when resolved_
 
-- **Require review from Code Owners:** ON
-  - Uses `.github/CODEOWNERS` file
+- **Require review from Code Owners:** OFF (temporarily disabled)
+  - CODEOWNERS file still exists but not enforced
+  - Will be re-enabled with approval requirements
 
 #### Force Push Protection
 - **Block force pushes:** ON
@@ -107,15 +110,12 @@ Current branch protection settings for the `main` branch in HelioStack repositor
 - ✅ Create branches with any name
 - ✅ Push commits to feature/fix/release branches
 - ✅ Create pull requests to `main`
-- ✅ Approve your own PRs (as code owner)
-- ✅ Merge PRs after approval
+- ✅ Merge PRs immediately (no approval required)
 - ✅ Choose merge method (merge/squash/rebase) per-PR
 
 ### You Cannot:
 - ❌ Push directly to `main` branch
-- ❌ Merge PRs without approval
 - ❌ Force push to `main` branch
-- ❌ Bypass code owner review requirement
 
 ### Validation Workflows
 - ✅ Run automatically on every PR
@@ -143,20 +143,18 @@ git push origin feature/new-feature
 
 # 4. On GitHub:
 # - Create PR to main
-# - @jimmymuzza auto-assigned as reviewer (CODEOWNERS)
 # - Validation checks run automatically:
 #   - validate-branch-name
 #   - validate-docs
 #   - validate-go (if .go files exist)
 
-# 5. Review and approve
+# 5. Review (optional)
 # - Review the changes
 # - Check validation results (informational)
-# - Approve the PR
 
 # 6. Merge
 # - Choose merge method (merge/squash/rebase)
-# - Merge PR
+# - Merge PR immediately (no approval needed)
 # - Auto-versioning creates tags based on branch name
 ```
 
@@ -261,6 +259,7 @@ Only then can the PR be merged.
 |------|--------|--------|
 | 12 Feb 2026 | Initial configuration | Set up branch protection with PR requirements, code owner approval, and force push blocking |
 | 12 Feb 2026 | Status checks: Disabled | Waiting for check names to appear after first run |
+| 12 Feb 2026 | Approval requirements: Disabled | Removed due to self-approval issues; temporarily simplified configuration |
 
 ---
 
@@ -270,11 +269,13 @@ Only then can the PR be merged.
 - Repository Settings → Branches → Branch protection rules
 - Direct link: `https://github.com/jimmymuzza/HelioStack/settings/branches`
 
-**Current Protection Level:** Medium
+**Current Protection Level:** Light
 - ✅ PR workflow enforced
-- ✅ Code owner approval required
+- ❌ Code owner approval: Disabled (temporarily)
 - ✅ Force push blocked
 - ⚠️ Status checks run but don't block (to be enabled)
 
-**Status:** Active and working
-**Next Step:** Enable status check requirements after they appear in GitHub
+**Status:** Active and working (simplified)
+**Next Steps:**
+1. Enable status check requirements after they appear in GitHub
+2. Re-enable approval requirements when self-approval issue is resolved
