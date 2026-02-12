@@ -1,0 +1,107 @@
+name: auto-version
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+jobs:
+  auto-version:
+    name: Auto Version
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Get merged branch name
+        id: branch
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Branch name: $BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Determine version bump type
+          if [[ "$BRANCH_NAME" == release/* ]]; then
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH_NAME" == feature/* ]]; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH_NAME" == fix/* ]]; then
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "Branch does not match release/*, feature/*, or fix/* pattern"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Calculate new version
+        if: steps.branch.outputs.skip != 'true'
+        id: version
+        run: |
+          # Get the latest semver tag
+          LATEST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)
+
+          if [[ -z "$LATEST_TAG" ]]; then
+            MAJOR=0
+            MINOR=0
+            PATCH=0
+          else
+            # Parse version components
+            VERSION=${LATEST_TAG#v}
+            MAJOR=$(echo "$VERSION" | cut -d. -f1)
+            MINOR=$(echo "$VERSION" | cut -d. -f2)
+            PATCH=$(echo "$VERSION" | cut -d. -f3)
+          fi
+
+          echo "Current version: $MAJOR.$MINOR.$PATCH"
+
+          # Increment based on bump type
+          case "${{ steps.branch.outputs.bump_type }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version: $NEW_VERSION"
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+
+      - name: Create and push tags
+        if: steps.branch.outputs.skip != 'true'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          MAJOR="${{ steps.version.outputs.major }}"
+
+          # Create the full version tag
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+          # Update the major version shorthand tag (force update)
+          git tag -fa "v$MAJOR" -m "Release v$MAJOR (pointing to v$NEW_VERSION)"
+          git push origin "v$MAJOR" --force
+
+          echo "Created tags: v$NEW_VERSION and v$MAJOR"
