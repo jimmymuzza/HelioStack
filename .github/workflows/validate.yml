@@ -1,0 +1,127 @@
+name: validate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-branch-name:
+    name: Validate Branch Name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming convention
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch name: $BRANCH"
+
+          if [[ ! "$BRANCH" =~ ^(release|feature|fix)/ ]]; then
+            echo "❌ Invalid branch name: $BRANCH"
+            echo ""
+            echo "Branch must start with one of:"
+            echo "  - release/  (major version bump)"
+            echo "  - feature/  (minor version bump)"
+            echo "  - fix/      (patch version bump)"
+            echo ""
+            echo "Example: feature/add-user-auth"
+            exit 1
+          fi
+
+          echo "✅ Branch name is valid"
+
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6
+        with:
+          node-version: '20'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Lint YAML files
+        run: |
+          if find . -name "*.yml" -o -name "*.yaml" | grep -q .; then
+            yamllint -d "{extends: default, rules: {line-length: {max: 120}, document-start: disable}}" .
+          else
+            echo "No YAML files found, skipping"
+          fi
+
+      - name: Lint Markdown files
+        run: |
+          if find . -name "*.md" | grep -q .; then
+            markdownlint '**/*.md' --ignore node_modules || true
+          else
+            echo "No Markdown files found, skipping"
+          fi
+
+  validate-go:
+    name: Validate Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Check for Go files
+        id: check_go
+        run: |
+          if find . -name "*.go" | grep -q .; then
+            echo "has_go=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go=false" >> $GITHUB_OUTPUT
+            echo "No Go files found, skipping Go validation"
+          fi
+
+      - name: Set up Go
+        if: steps.check_go.outputs.has_go == 'true'
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
+        with:
+          go-version: '1.22'
+
+      - name: Go Format Check
+        if: steps.check_go.outputs.has_go == 'true'
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "❌ The following files are not formatted:"
+            echo "$unformatted"
+            echo ""
+            echo "Please run: go fmt ./..."
+            exit 1
+          fi
+          echo "✅ All Go files are properly formatted"
+
+      - name: Go Vet
+        if: steps.check_go.outputs.has_go == 'true'
+        run: go vet ./...
+
+      - name: Go Build
+        if: steps.check_go.outputs.has_go == 'true'
+        run: go build -v ./...
+
+      - name: Install gosec
+        if: steps.check_go.outputs.has_go == 'true'
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec Security Scanner
+        if: steps.check_go.outputs.has_go == 'true'
+        run: gosec ./...
+
+      - name: Install govulncheck
+        if: steps.check_go.outputs.has_go == 'true'
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        if: steps.check_go.outputs.has_go == 'true'
+        run: govulncheck ./...
